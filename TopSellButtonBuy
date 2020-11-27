@@ -1,0 +1,41 @@
+//@version=4
+strategy("TopSellButtonBuy", overlay=true)
+length_1 = input(12)
+length_2 = input(30)
+check = input(24*60)
+lot = input(1000)
+min_win = input(0.01)
+h = highest(check)
+l = lowest(check)
+m = (h+l)/2
+ema1 = ema(close, length_1)
+ema2 = ema(close, length_2)
+plot(ema1, title ='EMA1', color= color.blue, linewidth = 1)
+plot(ema2, title ='EMA2', color= color.orange, linewidth = 2)
+
+plot(m, title='Middle_line', color=color.yellow, linewidth=1)
+plot(h, title='Highest_line', color=color.red, linewidth=2)
+plot(l, title='Lowest_line', color=color.green, linewidth=2)
+// decide buy or sell
+
+direction = open - ema1
+threshold = input(0.75)
+buylimit = m - (m-l)*threshold 
+selllimit = (h-m)*threshold + m
+plot(selllimit, title='Highest_line', color=color.red, linewidth=1)
+plot(buylimit, title='Lowest_line', color=color.green, linewidth=1)
+
+
+if open > selllimit and direction < 0
+    strategy.close("buy")
+    strategy.entry("sell", strategy.short, lot)
+if open < buylimit and direction > 0
+    strategy.close("sell")
+    strategy.entry("buy", strategy.long, lot)
+    
+    
+if close >= m and ema1 <= ema2
+    strategy.close("buy")
+
+if close <= m and ema1 >= ema2
+    strategy.close("sell")
