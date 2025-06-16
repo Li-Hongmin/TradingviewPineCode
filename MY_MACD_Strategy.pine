@@ -1,77 +1,42 @@
-//@version=4
-strategy("MY MACD Strategy", overlay=true, pyramiding=10, calc_on_order_fills = true)
-// Getting inputs
+//@version=5
+strategy("MY MACD Strategy", overlay=true, pyramiding=10)
+
+// parameters
 fast_length = input(title="Fast Length", type=input.integer, defval=12)
 slow_length = input(title="Slow Length", type=input.integer, defval=26)
-delay = input(3)
-src = input(title="Source", type=input.source, defval=close)
-signal_length = input(title="Signal Smoothing", type=input.integer, minval = 1, maxval = 50, defval = 9)
+signal_length = input(title="Signal Smoothing", type=input.integer, minval=1, maxval=50, defval=9)
 sma_source = input(title="Simple MA(Oscillator)", type=input.bool, defval=true)
 sma_signal = input(title="Simple MA(Signal Line)", type=input.bool, defval=false)
-
 ifsell = input(title="ifsell", type=input.bool, defval=true)
 ifbuy = input(title="ifbuy", type=input.bool, defval=false)
+baselot = input(title="lot (times of 0.1 lot)",  type=input.integer, minval=1, defval=1)
+safeline = input(0)
+safe_line = safeline / 100.0
 
-baselot = input(title = "lot (times of 0.1 lot)",  type = input.integer, minval = 1, defval = 1)
+src = input(title="Source", type=input.source, defval=close)
 base_lot = 1000 * baselot
 
-// Plot colors
-col_grow_above = #26A69A
-col_grow_below = #FFCDD2
-col_fall_above = #B2DFDB
-col_fall_below = #EF5350
-col_macd = #0094ff
-col_signal = #ff6a00
-// Calculating
+// MACD
 fast_ma = sma_source ? sma(src, fast_length) : ema(src, fast_length)
 slow_ma = sma_source ? sma(src, slow_length) : ema(src, slow_length)
 macd = fast_ma - slow_ma
 signal = sma_signal ? sma(macd, signal_length) : ema(macd, signal_length)
 hist = macd - signal
-// plot(hist, title="Histogram", style=plot.style_columns, color=(hist>=0 ? (hist[1] < hist ? col_grow_above : col_fall_above) : (hist[1] < hist ? col_grow_below : col_fall_below) ), transp=0 )
-// plot(macd, title="MACD", color=col_macd, transp=0)
-// plot(signal, title="Signal", color=col_signal, transp=0)
 
+// lot size
+lot = strategy.opentrades > 0 and strategy.openprofit < 0 ? strategy.opentrades * base_lot : base_lot
 
-
-lot = if (strategy.openprofit >= 0)
-    base_lot
-else
-    (strategy.opentrades)* base_lot
-
-safeline = input(0)
-safe_line = safeline/100.0
-
-if (ifbuy)
-    if (crossover(hist, 0) and (macd < -safe_line))
-    	strategy.order("MacdLE", strategy.long, lot, comment="MacdLE")
-    	l = label.new(bar_index, na)
-        label.set_text(l, tostring(macd))
-        label.set_color(l, color.red)
-        label.set_yloc(l, yloc.belowbar)
-        label.set_style(l, label.style_labelup)
-    if ((hist < hist[delay]) and (strategy.position_avg_price < close))
+// long
+if ifbuy
+    if crossover(hist, 0) and macd < -safe_line
+        strategy.entry("MacdLE", strategy.long, lot, comment="MacdLE")
+    // 退出逻辑改为使用历史柱
+    if hist[1] > hist[2] and strategy.position_avg_price < close
         strategy.close("MacdLE")
-    if ((hist < hist[delay]) and (strategy.position_avg_price > close))
-        l = label.new(bar_index, na)
-        label.set_text(l, "Exit")
-        label.set_color(l, color.green)
-        label.set_yloc(l, yloc.belowbar)
-        label.set_style(l, label.style_labelup)
-    // strategy.entry("MacdLE", strategy.long, when = close < lowest(slow_length), comment="MacdLE")
-if (ifsell)
-    if (crossunder(hist, 0) and (macd > safe_line))
-    	strategy.order("MacdSE", strategy.short, lot, comment="MacdSE")
-    if ((hist > hist[delay]) and (strategy.openprofit > 0))
+
+// short
+if ifsell
+    if crossunder(hist, 0) and macd > safe_line
+        strategy.entry("MacdSE", strategy.short, lot, comment="MacdSE")
+    if hist[1] < hist[2] and strategy.position_avg_price > close
         strategy.close("MacdSE")
-    if ((hist > hist[delay]) and (strategy.position_avg_price < close))
-        l = label.new(bar_index, na)
-        label.set_text(l, "Exit")
-        label.set_color(l, color.green)
-        label.set_yloc(l, yloc.belowbar)
-        label.set_style(l, label.style_labelup)
-
-    // strategy.entry("MacdSE", strategy.short, when = close < lowest(slow_length), comment="MacdSE")
-
-
-
